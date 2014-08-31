@@ -4,7 +4,6 @@
 #include<sstream>
 #include<vector>
 #include<map>
-
 using namespace std;
 
 class DBSystem
@@ -26,8 +25,8 @@ class DBSystem
 
 void DBSystem::readConfig(string filename) //stores the metadata of the tables and their attributes in the meta.txt file .
 {
-	ifstream conf (filename.c_str(),ios::in);
-	ofstream meta ("meta.txt",ios::out);
+	ifstream conf (filename.c_str());
+	ofstream meta ("meta.txt");
 	string ll,s1,s2;
 	int fl=0;
 	if(conf.is_open())
@@ -67,7 +66,7 @@ void DBSystem::populatepageInfo()
 	int page_num=0;
 	while(getline(meta,ll))// each line in the meta file contains details about one table 
 	{
-		pages.push_back("");
+		pages.push_back(string(""));
 		stringstream line;
 		string s1;
 		int i,record_no=0,f_point=0;//record_no helps in counting the recordIds of a particular table irrespective of the pages that they are stored in and f_point helps to track the end of the page and not accidently writing a record by which the max page size exceeds .
@@ -76,8 +75,8 @@ void DBSystem::populatepageInfo()
 		ifstream file ((s1+".csv").c_str());//the corresponding .csv files contain the records
 		string ll2;
 		file.is_open();
-		table_map[s1]=make_pair(page_num,page_num);//store the start and the end page as (0,0) for the first table
-		page_map.push_back(make_pair(record_no,record_no));//in the page 0 store (0,0) for initial and the final recordIds
+		table_map[s1]=pair<int,int>(page_num,page_num);//store the start and the end page as (0,0) for the first table
+		page_map.push_back(pair<int,int>(record_no,record_no));//in the page 0 store (0,0) for initial and the final recordIds
 		while(getline(file,ll2))
 		{
 			stringstream outpage,out2;
@@ -111,10 +110,10 @@ void DBSystem::populatepageInfo()
 			{
 				//I enter in this only if the record does not fit into the current page
 				page_map[page_num].second=record_no-1;//previous pages end record_no
-				page_map.push_back(make_pair(record_no,record_no));//next page's initial and final recordIds
+				page_map.push_back(pair<int,int>(record_no,record_no));//next page's initial and final recordIds
 
 				page_num++;
-				pages.push_back("");//new empty page is created
+				pages.push_back(string(""));//new empty page is created
 				f_point=0;
 			}
 			//incrementing the page_num is sufficient to indicate new page . Everything is as usual
@@ -126,8 +125,7 @@ void DBSystem::populatepageInfo()
 		page_map[page_num].second = record_no-1;
 		record_no=0;
 		table_map[s1].second=page_num;//since I will go to next table itself in the next iteration . Enter the previous pages end pageId here.
-		page_num++;//Since new table has to be entered in a new page so here we create a new page 
-		page_map.push_back(make_pair(record_no,record_no));
+		page_num++;//Since new table has to be entered in a new page so here we create a new page
 		file.close();//close the current table's .csv file 
 
 	}
@@ -136,16 +134,21 @@ void DBSystem::populatepageInfo()
 
 	for(int j=0;j<pages.size();j++)
 		cout << pages[j] << '\n';
+
 }
 
 string DBSystem::getRecord(string tableName,int recordId)
 {
+	
 	int startPage = table_map[tableName].first;
 	int endPage = table_map[tableName].second;//take the start and the end page Ids of the table with name==tablename
 	int pageReq;//pageReq is the required page that contains the relevent information .
 	for(int i=startPage;i<=endPage;i++)
-		if(page_map[i].first <= recordId && page_map[i+1].second >= recordId )
+		if(page_map[i].first <= recordId && page_map[i].second >= recordId )
+		{
 			pageReq = i;
+		}
+	
 	map<int,int>::iterator it=mem_pages.find(pageReq);
 	if(it!=mem_pages.end())//enter this loop if the pageReq is present already in the mem_pages map .
 	{
@@ -166,10 +169,10 @@ string DBSystem::getRecord(string tableName,int recordId)
 			mem_pages.erase(least->first);//least iterator will point to the page that needs to be removed.
 
 		}
-		mem_pages[pageReq]=1;
+		mem_pages.insert(pair<int,int>(pageReq,1));
 
 	}
-	cout << search(pages[pageReq],recordId-page_map[pageReq].first) << "\n";//search for the required record in the page that contains it
+	return search(pages[pageReq],recordId-page_map[pageReq].first);//search for the required record in the page that contains it
 
 }
 
@@ -184,14 +187,12 @@ string DBSystem::search(string page,int recordId)
 		buf << page.substr(index);//make a sub string of page from index till the end .
 		buf >> length;//get the length of the current record
 		index+=length;
-		//cout << '\n' << page[index-1] << '\n' ;
 		recordId--;
 
 	}
 	stringstream buf;
 	buf << page.substr(index);
 	buf >> length;
-	//cout << "length :" << length << '\n';
 	return page.substr(index,length);//make the subtring from index till the end of the record .    
 }
 
@@ -218,8 +219,7 @@ int main()
 		getline(cin,mystr);
 		query << mystr;
 		query >> name >> id;
-		cout << name << ' ' << id << '\n';
-		mine.getRecord(name,id);
+		cout << mine.getRecord(name,id) << '\n';
 	}
 	return 0;
 }
