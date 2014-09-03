@@ -1,0 +1,2 @@
+employee employee_id,int employee_name,string 
+student sid,int sname,string sbatch,string 

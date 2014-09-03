@@ -12,7 +12,7 @@ class DBSystem
 	string path;
 	vector<string> pages;// Pages are here 
 	map<string,int> table_map; // gives a mapping from name of the table to the start and the end page ID
-	vector<pair<int,int> > table_vec;
+	vector<pair<int,int> > table_vec; // table_vec[0] stores start and end page id of table 0
 	vector<pair<int,int> > page_map; // page_map[0] gives the start and the end record Id in the page 0
 	map<int,int> mem_pages; // <pageId,freq> of pages in the memory
 	public:
@@ -107,6 +107,7 @@ void DBSystem::populatepageInfo()
 			}
 			rec.append("$");//end of record symbol
 			stringstream out3;
+			rec_header[rec_header.length()-1]='%';
 			out3 << i << '#' << rec_header << rec;//out3 is used for calculating the length of the entire record
 			outpage  << out3.str().length() << '#' << rec_header << rec;//record length is appended to header info here
 			if(outpage.str().length()+f_point > psize)//details of outpage are entered only when it fits into current page
@@ -205,6 +206,97 @@ string DBSystem::search(string page,int recordId)
 
 void DBSystem::insertRecord(string tableName, string record)
 {
+	//sample input => "student john,201201179"
+	/*
+	First i convert the record into a valid record entry having record pointers and the values 
+	separated by #. Then I find the last page id of the tableName from table_vec[table_map[tablename]].second
+	Then i check if the record can fit into last page , if yes then enter and END
+	ELSE
+		insert a new page in pages vector and edit the table_vec[table_map[tablename]].second value to new page id
+	
+	IF the current table is not the last table,
+	THEN
+		find the next table id by table_map[tablename] + 1 and increment the first and second pair values of
+		table_map from next table till last table
+	*/
+	cout<< "INSERTING " << record<< " INTO "<<tableName<<endl;
+	stringstream outpage,out2;
+	string rec_header,rec;//rec contains the contents of the record and the rec_header contains the header details
+	out2 << 0;//NOTE : The rec_header does not the total lenght details initially . it is added later .
+	rec_header.append(out2.str()+'#');//every record's first field is at 0.
+	int i;
+	for(i=0;i<record.length();i++)
+	{
+		if(record[i]==',')
+		{
+			stringstream out;
+			out << i+1;
+			rec_header.append(out.str()+'#');
+		}
+		else if(record[i]=='\n')//this will never arise actually as each record spans only one line and '\n' is not included in ll2
+		{
+		}
+		else
+		{
+			stringstream out;
+			out << record[i];
+			rec.append(out.str());
+		}
+
+	}
+	rec.append("$");//end of record symbol
+	stringstream out3;
+	rec_header[rec_header.length()-1]='%';
+	out3 << i << '#' << rec_header << rec;//out3 is used for calculating the length of the entire record
+	outpage  << out3.str().length() << '#' << rec_header << rec;//record length is appended to header info here
+	//cout << outpage.str() <<endl;
+
+	int last_page = table_vec[table_map[tableName]].second;
+	int last_record_num = page_map[last_page].second;
+	int f_point = pages[last_page].length();
+	cout << "initially:" <<pages[last_page]<<endl;
+	last_record_num++;
+	bool created_newPage = false;
+	if(outpage.str().length()+f_point > psize)//details of outpage are entered only when it fits into current page
+	{
+	//I enter in this only if the record does not fit into the current page
+		//page_map[page_num].second=recor_dno-1;//previous pages end record_no
+		last_page++;
+		page_map.insert(page_map.begin() + last_page ,make_pair(last_record_num,last_record_num));//next page's initial and final recordIds
+
+		pages.insert(pages.begin() + last_page ,"");//new empty page is created
+		created_newPage = true;
+	}
+	//incrementing the page_num is sufficient to indicate new page . Everything is as usual
+	
+	page_map[last_page].second = last_record_num;
+	pages[last_page].append(outpage.str());//appending the record present in outpage to the current page .
+
+	table_vec[table_map[tableName]].second = last_page;
+
+	cout <<"finally:"<<pages[last_page]<<endl;
+
+	int cur_table = table_map[tableName];
+	cout<<"Current table : "<<cur_table<<endl;
+	cout<<"TABLES SIZE : "<<table_vec.size()<<endl;
+	cout<<"PAGES SIZE : "<<pages.size()<<endl;
+	cout<<"PAGE_MAP SIZE : "<<page_map.size()<<endl;
+	cout<<endl;
+	if(created_newPage == true)
+	{
+		for (int j=(cur_table + 1); j<table_vec.size();j++)
+		{
+			cout<<j<<" first: "<<table_vec[j].first<<"->";
+			table_vec[j].first += 1;
+			cout<<table_vec[j].first<<endl;
+
+			cout<<j<<" sec: "<<table_vec[j].second<<"->";
+			table_vec[j].second += 1;	
+			cout<<table_vec[j].second<<endl;
+		}
+	}
+
+
 
 }
 
@@ -218,7 +310,7 @@ int main()
 	DBSystem mine;
 	mine.readConfig("config.txt");
 	mine.populatepageInfo();
-	while(1)
+	/*while(1)
 	{
 		stringstream query;
 		string mystr,name;
@@ -227,7 +319,21 @@ int main()
 		query << mystr;
 		query >> name >> id;
 		cout << mine.getRecord(name,id) << '\n';
+	}*/
+	while(1)
+	{
+		stringstream query;
+		string mystr,tablename, record;
+		/*getline(cin,mystr);
+		query << mystr;
+		query >> tablename >> record;*/
+		cin>>tablename;
+		cin>>record;
+
+		//cout << mine.getRecord(tablename, record) << '\n';
+		mine.insertRecord(tablename, record);
 	}
+	
 	return 0;
 }
 
